@@ -1,26 +1,97 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import { MyOctokit } from './MyOctokit'
+import {
+  fetchSecretScanningAlerts,
+  mapSecretScanningAlerts,
+  updateSecretScanningAlerts
+} from './SecretScanning'
+import { generateReport, saveReport } from './Report'
+import { Matches } from './types/common/main.d'
 
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    // Inputs
+    const originalRepository = core.getInput('original-repository', {
+      required: true
+    })
+    const originalEndpoint =
+      core.getInput('original-endpoint') || 'https://api.github.com'
+    const originalToken = core.getInput('original-token', { required: true })
+    const targetRepository = core.getInput('target-repository', {
+      required: true
+    })
+    const targetEndpoint =
+      core.getInput('target-endpoint') || 'https://api.github.com'
+    const targetToken = core.getInput('target-token', { required: true })
+    const dryRun = core.getBooleanInput('dry-run', { required: true })
+    const alertTypesInput = core.getInput('alert-types') || 'all'
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    const alertTypes = alertTypesInput.split(',').map(s => s.trim())
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    // Octokit instances
+    const [originalOwner, originalRepo] = originalRepository.split('/')
+    const [targetOwner, targetRepo] = targetRepository.split('/')
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const OriginalOctokit = new MyOctokit({
+      auth: originalToken,
+      baseUrl: originalEndpoint
+    })
+
+    const TargetOctokit = new MyOctokit({
+      auth: targetToken,
+      baseUrl: targetEndpoint
+    })
+
+    let matches: Matches[] = []
+
+    // Fetch and sync alerts
+    if (alertTypes.includes('all') || alertTypes.includes('secret-scanning')) {
+      core.info('Processing Secret Scanning Alerts...')
+      const originalAlerts = await fetchSecretScanningAlerts(
+        OriginalOctokit,
+        originalOwner,
+        originalRepo
+      )
+      core.debug(
+        `Fetched ${originalAlerts.length} alerts from the original repository`
+      )
+      const targetAlerts = await fetchSecretScanningAlerts(
+        TargetOctokit,
+        targetOwner,
+        targetRepo
+      )
+      core.debug(
+        `Fetched ${targetAlerts.length} alerts from the target repository`
+      )
+
+      matches = mapSecretScanningAlerts(originalAlerts, targetAlerts)
+
+      core.debug(`Found ${matches.length} matches`)
+
+      await updateSecretScanningAlerts(
+        matches,
+        TargetOctokit,
+        targetOwner,
+        targetRepo,
+        dryRun
+      )
+    }
+
+    // Handle other alert types...
+
+    // Save report
+    const reportPath = './reports/ghas-alert-mapping-report.md'
+    const reportContent = generateReport(matches)
+    saveReport(reportPath, reportContent)
+
+    // Outputs
+    core.setOutput('report-file', reportPath)
+    core.info(`Action completed. Report file: ${reportPath}`)
   } catch (error) {
-    // Fail the workflow run if an error occurs
-    if (error instanceof Error) core.setFailed(error.message)
+    core.setFailed(`Action failed with error: ${String(error)}`)
   }
 }
+
+run().catch(error => {
+  core.setFailed(`Unhandled error: ${String(error)}`)
+})

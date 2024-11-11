@@ -39,10 +39,6 @@ jobs:
           languages: ${{ matrix.language }}
           source-root: src
 
-      - name: Autobuild
-        id: autobuild
-        uses: github/codeql-action/autobuild@v3
-
       - name: Perform CodeQL Analysis
         id: analyze
         uses: github/codeql-action/analyze@v3

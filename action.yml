@@ -1,23 +1,42 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'GHAS Alert Mapper'
+description: 'Map GHAS alerts between GitHub repositories.'
+author: 'Stefan Petrushevski @theztefan'
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
   icon: 'heart'
-  color: 'red'
+  color: 'purple'
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  original-repository:
+    description:
+      'Full name of the original repository - organization/repository'
     required: true
-    default: '1000'
+  original-endpoint:
+    description: 'Endpoint for the original repository - https://api.github.com'
+    required: false
+    default: 'https://api.github.com'
+  original-token:
+    description: 'GitHub Access Token for the original repository'
+    required: true
+  target-repository:
+    description: 'Full name of the target repository - organization/repository'
+    required: true
+  target-endpoint:
+    description: 'Endpoint for the target repository - https://api.github.com'
+    required: false
+    default: 'https://api.github.com'
+  target-token:
+    description: 'GitHub Access Token for the target repository'
+    required: true
+  dry-run:
+    description: 'Dry run the action without making any changes'
+    required: true
+    default: 'true'
 
 # Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
+  report-file:
+    description: 'The file containing the report of the action'
 
 runs:
   using: node20
