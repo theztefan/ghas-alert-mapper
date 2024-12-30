@@ -42,7 +42,7 @@
     "@actions/github": "^6.0.0",
     "@octokit/action": "^7.0.0",
     "@octokit/plugin-throttling": "^9.3.2",
-    "octokit": "^4.0.2"
+    "octokit": "^4.0.3"
   },
   "devDependencies": {
     "@github/local-action": "^2.1.3",
