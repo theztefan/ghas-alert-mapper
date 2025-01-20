@@ -41,7 +41,7 @@
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
     "@octokit/action": "^7.0.0",
-    "@octokit/plugin-throttling": "^9.3.2",
+    "@octokit/plugin-throttling": "^9.4.0",
     "octokit": "^4.0.2"
   },
   "devDependencies": {
