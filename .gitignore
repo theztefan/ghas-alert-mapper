@@ -105,3 +105,4 @@ __tests__/runner/*
 .secrets
 .devcontainer
 .devcontainer/**
+reports/**

@@ -1,27 +1,45 @@
-import { Octokit } from '@octokit/action'
+import { Octokit } from '@octokit/core'
+import { paginateRest } from '@octokit/plugin-paginate-rest'
+import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods'
 import { throttling } from '@octokit/plugin-throttling'
 
-export const MyOctokit = Octokit.plugin(throttling).defaults({
-  throttle: {
-    onRateLimit: (retryAfter: any, options: any, octokit: any) => {
-      octokit.log.warn(
-        `Request quota exhausted for ${options.method} ${options.url}`
-      )
-      if (options.request.retryCount <= 2) {
-        console.log(`Retrying after ${retryAfter} seconds!`)
-        return true
+// Create Octokit constructor with plugins
+const MyOctokitWithPlugins = Octokit.plugin(paginateRest)
+  .plugin(restEndpointMethods)
+  .plugin(throttling)
+
+export interface MyOctokitOptions {
+  auth?: string
+  baseUrl?: string
+}
+
+export class MyOctokit extends MyOctokitWithPlugins {
+  constructor(options: MyOctokitOptions = {}) {
+    super({
+      baseUrl: process.env.GITHUB_API_URL ?? 'https://api.github.com',
+      ...options,
+      throttle: {
+        onRateLimit: (retryAfter, opts, octokit) => {
+          octokit.log.warn(
+            `Request quota exhausted for request ${opts.method} ${opts.url}`
+          )
+          if (opts.request.retryCount <= 2) {
+            console.log(`Retrying after ${retryAfter} seconds!`)
+            return true
+          }
+        },
+        onSecondaryRateLimit: (retryAfter, opts, octokit) => {
+          octokit.log.warn(
+            `Secondary rate limit for request ${opts.method} ${opts.url}`
+          )
+          if (opts.request.retryCount <= 2) {
+            console.log(
+              `Secondary Limit - Retrying after ${retryAfter} seconds!`
+            )
+            return true
+          }
+        }
       }
-      return false
-    },
-    onSecondaryRateLimit: (retryAfter: any, options: any, octokit: any) => {
-      octokit.log.warn(
-        `Secondary rate limit hit for ${options.method} ${options.url}`
-      )
-      if (options.request.retryCount <= 2) {
-        console.log(`Retrying after ${retryAfter} seconds!`)
-        return true
-      }
-      return false
-    }
+    })
   }
-})
+}

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A GitHub Action to map GHAS alerts between repository copies",
   "author": "Stefan Petrushevski @theztefan",
+  "type": "module",
   "private": true,
   "homepage": "https://github.com/theztefan/ghas-alert-mapper",
   "repository": {
@@ -25,7 +26,6 @@
   },
   "scripts": {
     "bundle": "npm run format:write && npm run package",
-    "ci-test": "--experimental-vm-module npx jest",
     "coverage": "npx make-coverage-badge --output-path ./badges/coverage.svg",
     "format:write": "npx prettier --write .",
     "format:check": "npx prettier --check .",
@@ -33,34 +33,34 @@
     "local-action": "npx local-action . src/main.ts .env",
     "package": "npx ncc build src/index.ts -o dist --source-map --license licenses.txt",
     "package:watch": "npm run package -- --watch",
-    "test": "npx jest",
-    "all": "npm run format:write && npm run lint && npm run test && npm run coverage && npm run package"
+    "test": "cd tests && npm install && npm run test",
+    "all": "npm run format:write && npm run lint && cd tests && npm install && npm run test && cd .. && npm run coverage && npm run package"
   },
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
     "@octokit/action": "^7.0.0",
-    "@octokit/plugin-throttling": "^9.3.2",
+    "@octokit/core": "^6.1.3",
+    "@octokit/plugin-paginate-rest": "^11.4.0",
+    "@octokit/plugin-rest-endpoint-methods": "^13.3.0",
+    "@octokit/plugin-throttling": "^9.4.0",
     "octokit": "^4.0.2"
   },
   "devDependencies": {
-    "@github/local-action": "^2.1.3",
-    "@jest/globals": "^29.7.0",
-    "@types/jest": "^29.5.14",
     "@types/node": "^22.8.7",
+    "@github/local-action": "^2.5.1",
     "@typescript-eslint/eslint-plugin": "^8.12.2",
     "@typescript-eslint/parser": "^8.12.2",
     "@vercel/ncc": "^0.38.2",
+    "dotenv": "^16.4.7",
     "eslint": "^8.57.0",
     "eslint-plugin-jest": "^28.8.3",
     "eslint-plugin-jsonc": "^2.16.0",
     "eslint-plugin-prettier": "^5.2.1",
-    "jest": "^29.7.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.3.3",
     "prettier-eslint": "^16.3.0",
-    "ts-jest": "^29.2.5",
     "typescript": "^5.6.3"
   }
 }

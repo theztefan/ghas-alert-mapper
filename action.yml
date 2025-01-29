@@ -7,28 +7,28 @@ branding:
   color: 'purple'
 
 inputs:
-  original-repository:
+  original_repository:
     description:
       'Full name of the original repository - organization/repository'
     required: true
-  original-endpoint:
+  original_endpoint:
     description: 'Endpoint for the original repository - https://api.github.com'
     required: false
     default: 'https://api.github.com'
-  original-token:
+  original_token:
     description: 'GitHub Access Token for the original repository'
     required: true
-  target-repository:
+  target_repository:
     description: 'Full name of the target repository - organization/repository'
     required: true
-  target-endpoint:
+  target_endpoint:
     description: 'Endpoint for the target repository - https://api.github.com'
     required: false
     default: 'https://api.github.com'
-  target-token:
+  target_token:
     description: 'GitHub Access Token for the target repository'
     required: true
-  dry-run:
+  dry_run:
     description: 'Dry run the action without making any changes'
     required: true
     default: 'true'
