@@ -43,27 +43,3 @@ jobs:
       - name: Test
         id: npm-ci-test
         run: npm run ci-test
-
-  test-action:
-    name: GitHub Actions Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v4
-
-      - name: Test Local Action
-        id: test-action
-        uses: ./
-        with:
-          original-repository: ${{ env.ORIGIN_REPOSITORY }}
-          original-token: ${{ secrets.ORIGIN_GITHUB_TOKEN }}
-          target-repository: ${{ env.TARGET_REPOSITORY }}
-          target-token: ${{ secrets.TARGET_GITHUB_TOKEN }}
-          dry-run: ${{ env.DRY_RUN }}
-          report-file: report.md
-
-      - name: Print Output
-        id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
