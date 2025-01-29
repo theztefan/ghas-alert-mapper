@@ -32,10 +32,15 @@ inputs:
     description: 'Dry run the action without making any changes'
     required: true
     default: 'true'
+  alert_types:
+    description:
+      'Comma separated list of alert types to process (all, secret-scanning,
+      code-scanning, dependabot).'
+    required: false
+    default: 'all'
 
-# Define your outputs here.
 outputs:
-  report-file:
+  report_file:
     description: 'The file containing the report of the action'
 
 runs:

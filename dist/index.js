@@ -2434,7 +2434,7 @@ class HttpClient {
         if (this._keepAlive && useProxy) {
             agent = this._proxyAgent;
         }
-        if (this._keepAlive && !useProxy) {
+        if (!useProxy) {
             agent = this._agent;
         }
         // if agent is already assigned use that agent.
@@ -2466,15 +2466,11 @@ class HttpClient {
             agent = tunnelAgent(agentOptions);
             this._proxyAgent = agent;
         }
-        // if reusing agent across request and tunneling agent isn't assigned create a new agent
-        if (this._keepAlive && !agent) {
+        // if tunneling agent isn't assigned create a new agent
+        if (!agent) {
             const options = { keepAlive: this._keepAlive, maxSockets };
             agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
             this._agent = agent;
-        }
-        // if not using private agent and tunnel agent isn't setup then use global agent
-        if (!agent) {
-            agent = usingSsl ? https.globalAgent : http.globalAgent;
         }
         if (usingSsl && this._ignoreSslError) {
             // we don't want to set NODE_TLS_REJECT_UNAUTHORIZED=0 since that will affect request for entire process
@@ -2497,7 +2493,7 @@ class HttpClient {
         }
         const usingSsl = parsedUrl.protocol === 'https:';
         proxyAgent = new undici_1.ProxyAgent(Object.assign({ uri: proxyUrl.href, pipelining: !this._keepAlive ? 0 : 1 }, ((proxyUrl.username || proxyUrl.password) && {
-            token: `${proxyUrl.username}:${proxyUrl.password}`
+            token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString('base64')}`
         })));
         this._proxyAgentDispatcher = proxyAgent;
         if (usingSsl && this._ignoreSslError) {
@@ -2610,11 +2606,11 @@ function getProxyUrl(reqUrl) {
     })();
     if (proxyVar) {
         try {
-            return new URL(proxyVar);
+            return new DecodedURL(proxyVar);
         }
         catch (_a) {
             if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
-                return new URL(`http://${proxyVar}`);
+                return new DecodedURL(`http://${proxyVar}`);
         }
     }
     else {
@@ -2672,6 +2668,19 @@ function isLoopbackAddress(host) {
         hostLower.startsWith('127.') ||
         hostLower.startsWith('[::1]') ||
         hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
+}
+class DecodedURL extends URL {
+    constructor(url, base) {
+        super(url, base);
+        this._decodedUsername = decodeURIComponent(super.username);
+        this._decodedPassword = decodeURIComponent(super.password);
+    }
+    get username() {
+        return this._decodedUsername;
+    }
+    get password() {
+        return this._decodedPassword;
+    }
 }
 //# sourceMappingURL=proxy.js.map
 
@@ -13012,6 +13021,14 @@ const { isUint8Array, isArrayBuffer } = __nccwpck_require__(8253)
 const { File: UndiciFile } = __nccwpck_require__(3041)
 const { parseMIMEType, serializeAMimeType } = __nccwpck_require__(4322)
 
+let random
+try {
+  const crypto = __nccwpck_require__(7598)
+  random = (max) => crypto.randomInt(0, max)
+} catch {
+  random = (max) => Math.floor(Math.random(max))
+}
+
 let ReadableStream = globalThis.ReadableStream
 
 /** @type {globalThis['File']} */
@@ -13097,7 +13114,7 @@ function extractBody (object, keepalive = false) {
     // Set source to a copy of the bytes held by object.
     source = new Uint8Array(object.buffer.slice(object.byteOffset, object.byteOffset + object.byteLength))
   } else if (util.isFormDataLike(object)) {
-    const boundary = `----formdata-undici-0${`${Math.floor(Math.random() * 1e11)}`.padStart(11, '0')}`
+    const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, '0')}`
     const prefix = `--${boundary}\r\nContent-Disposition: form-data`
 
     /*! formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
@@ -27085,7 +27102,6 @@ const MyOctokitWithPlugins = core_1.Octokit.plugin(plugin_paginate_rest_1.pagina
 class MyOctokit extends MyOctokitWithPlugins {
     constructor(options = {}) {
         super({
-            baseUrl: process.env.GITHUB_API_URL ?? 'https://api.github.com',
             ...options,
             throttle: {
                 onRateLimit: (retryAfter, opts, octokit) => {
@@ -27332,18 +27348,18 @@ const Report_1 = __nccwpck_require__(8585);
 async function run() {
     try {
         // Inputs
-        const originalRepository = core.getInput('original-repository', {
+        const originalRepository = core.getInput('original_repository', {
             required: true
         });
-        const originalEndpoint = core.getInput('original-endpoint') || 'https://api.github.com';
-        const originalToken = core.getInput('original-token', { required: true });
-        const targetRepository = core.getInput('target-repository', {
+        const originalEndpoint = core.getInput('original_endpoint') || 'https://api.github.com';
+        const originalToken = core.getInput('original_token', { required: true });
+        const targetRepository = core.getInput('target_repository', {
             required: true
         });
-        const targetEndpoint = core.getInput('target-endpoint') || 'https://api.github.com';
-        const targetToken = core.getInput('target-token', { required: true });
-        const dryRun = core.getBooleanInput('dry-run', { required: true });
-        const alertTypesInput = core.getInput('alert-types') || 'all';
+        const targetEndpoint = core.getInput('target_endpoint') || 'https://api.github.com';
+        const targetToken = core.getInput('target_token', { required: true });
+        const dryRun = core.getBooleanInput('dry_run', { required: true });
+        const alertTypesInput = core.getInput('alert_types') || 'all';
         const alertTypes = alertTypesInput.split(',').map(s => s.trim());
         // Octokit instances
         const [originalOwner, originalRepo] = originalRepository.split('/');
@@ -27368,13 +27384,13 @@ async function run() {
             core.debug(`Found ${matches.length} matches`);
             await (0, SecretScanning_js_1.updateSecretScanningAlerts)(matches, TargetOctokit, targetOwner, targetRepo, dryRun);
         }
-        // Handle other alert types...
+        // TODO: Handle other alert types...
         // Save report
         const reportPath = './reports/ghas-alert-mapping-report.md';
         const reportContent = (0, Report_1.generateReport)(matches);
         (0, Report_1.saveReport)(reportPath, reportContent);
         // Outputs
-        core.setOutput('report-file', reportPath);
+        core.setOutput('report_file', reportPath);
         core.info(`Action completed. Report file: ${reportPath}`);
     }
     catch (error) {
@@ -27476,6 +27492,13 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("https");
 /***/ ((module) => {
 
 module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("net");
+
+/***/ }),
+
+/***/ 7598:
+/***/ ((module) => {
+
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:crypto");
 
 /***/ }),
 

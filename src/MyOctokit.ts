@@ -16,7 +16,6 @@ export interface MyOctokitOptions {
 export class MyOctokit extends MyOctokitWithPlugins {
   constructor(options: MyOctokitOptions = {}) {
     super({
-      baseUrl: process.env.GITHUB_API_URL ?? 'https://api.github.com',
       ...options,
       throttle: {
         onRateLimit: (retryAfter, opts, octokit) => {

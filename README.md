@@ -10,30 +10,33 @@ manually or by a schedule.
 The primary use case for this is when you are migrating a repository from one
 organization to another, and you want to ensure that the GHAS alert state is
 consistent between the original repository and the new repository. This avoids
-the need for repository owners/maintainers to re-analyze already triaged and
+the need for repository owners/maintainers to go over already triaged and
 resoled alerts.
 
 ## Inputs
 
-- `original-repository` (required): Full name of the original repository -
+- `original_repository` (required): Full name of the original repository -
   organization/repository.
-- `original-endpoint` (optional, default: `https://api.github.com`): Endpoint
+- `original_endpoint` (optional, default: `https://api.github.com`): Endpoint
   for the original repository.
-- `original-token` (required): GitHub Access Token for the original repository.
-- `target-repository` (required): Full name of the target repository -
+- `original_token` (required): GitHub Access Token for the original repository.
+- `target_repository` (required): Full name of the target repository -
   organization/repository.
-- `target-endpoint` (optional, default: `https://api.github.com`): Endpoint for
+- `target_endpoint` (optional, default: `https://api.github.com`): Endpoint for
   the target repository.
-- `target-token` (required): GitHub Access Token for the target repository.
-- `dry-run` (required, default: `true`): Dry run the action without making any
+- `target_token` (required): GitHub Access Token for the target repository.
+- `dry_run` (required, default: `true`): Dry run the action without making any
   changes.
-- `alert-types` (optional, default: `all`): Comma separated list of alert types
+- `alert_types` (optional, default: `all`): Comma separated list of alert types
   to process. Valid values are `all`, `secret-scanning`, `code-scanning`, and
   `dependabot`.
 
+:warning: The `code-scanning` and `dependabot` alert types are not supported
+yet.
+
 ## Outputs
 
-- `report-file`: The path to the report file that contains the results of the
+- `report_file`: The path to the report file that contains the results of the
   action. This file will be in the `reports` directory of the repository.
 
 ## How does it work?
@@ -69,13 +72,13 @@ The alerts are a match when the following criteria are met:
 
 #### Code Scanning Alerts
 
-TODO
+:warning: TODO: NOT SUPPORTED YET!
 
 #### Dependabot Alerts
 
-TODO
+:warning: TODO: NOT SUPPORTED YET!
 
-## Local Setup and development Initial Setup
+## Development Setup
 
 After you've cloned the repository to your local machine or codespace, you'll
 need to perform some initial setup steps before you can develop your action.
@@ -96,31 +99,47 @@ need to perform some initial setup steps before you can develop your action.
 
    ```bash
    $ npm test
-
-   PASS  ./index.test.js
-     ✓ throws invalid number (3ms)
-     ✓ wait 500 ms (504ms)
-     ✓ test runs (95ms)
-
    ...
    ```
 
-## Validate the Action
+## Validate the Action Locally
+
+You can use the `local-action` command to run the action locally.
+
+1. Edit .env file and add the required inputs. You can copy the .env.example
+   file and update the values as needed.
+
+2. Run the action locally
+
+```bash
+npx local-action . src/main.ts .env
+```
+
+## Use the Action in a Workflow
+
+You can use the action in a workflow in any repository. The following is an
+example of a workflow that uses the action:
 
 ```yaml
-steps:
-  - name: Test Local Action
-    id: test-action
-    uses: ./
-    with:
-      original-repository: ${{ github.repository }}
-      original-token: ${{ secrets.ORIGIN_GITHUB_TOKEN }}
-      target-repository: ${{ github.repository }}
-      target-token: ${{ secrets.DESTINATIONGITHUB_TOKEN }}
-      dry-run: true
-      alert-types: secret-scanning
+name: Update GHAS alert state
 
-  - name: Print Output
-    id: output
-    run: echo "${{ steps.test-action.outputs.report-file }}"
+...
+
+jobs:
+  update_ghas_alert_state:
+    runs-on: ubuntu-latest
+    steps:
+
+      ...
+
+      - name: Update GHAS alert state
+        id: update_ghas_alert_state
+        uses: theztefan/ghas-alert-mapper@main
+        with:
+          original_repository: octocat/original-repo
+          original_token: ${{ secrets.ORIGINAL_TOKEN }}
+          target_repository: octocat/target-repo
+          target_token: ${{ secrets.TARGET_TOKEN }}
+          dry_run: 'false'
+          alert_types: 'secret scanninge'
 ```

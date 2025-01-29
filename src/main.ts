@@ -21,7 +21,7 @@ export async function run(): Promise<void> {
       required: true
     })
     const targetEndpoint =
-      core.getInput('target-endpoint') || 'https://api.github.com'
+      core.getInput('target_endpoint') || 'https://api.github.com'
     const targetToken = core.getInput('target_token', { required: true })
     const dryRun = core.getBooleanInput('dry_run', { required: true })
     const alertTypesInput = core.getInput('alert_types') || 'all'
@@ -85,7 +85,7 @@ export async function run(): Promise<void> {
     saveReport(reportPath, reportContent)
 
     // Outputs
-    core.setOutput('report-file', reportPath)
+    core.setOutput('report_file', reportPath)
     core.info(`Action completed. Report file: ${reportPath}`)
   } catch (error) {
     core.setFailed(`Action failed with error: ${String(error)}`)
