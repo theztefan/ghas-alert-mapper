@@ -9,10 +9,5 @@ module.exports = {
   ],
   transform: {
     '^.+\\.(ts|js|mjs)$': 'babel-jest'
-  },
-  coverageProvider: 'babel',
-  collectCoverage: true,
-  coverageReporters: ['lcov', 'text-summary'],
-  collectCoverageFrom: ['../src/**/*.ts'],
-  coveragePathIgnorePatterns: ['/node_modules/']
+  }
 }
