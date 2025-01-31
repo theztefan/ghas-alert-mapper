@@ -27427,9 +27427,6 @@ async function run() {
         core.setFailed(`Action failed with error: ${String(error)}`);
     }
 }
-run().catch(error => {
-    core.setFailed(`Unhandled error: ${String(error)}`);
-});
 
 
 /***/ }),
