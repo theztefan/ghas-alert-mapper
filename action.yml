@@ -38,6 +38,10 @@ inputs:
       code-scanning, dependabot).'
     required: false
     default: 'all'
+  matching-level:
+    description: 'Matching level for the action (exact, loose).'
+    required: false
+    default: 'exact'
 
 outputs:
   report_file:

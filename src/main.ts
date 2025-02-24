@@ -25,6 +25,7 @@ export async function run(): Promise<void> {
     const targetToken = core.getInput('target_token', { required: true })
     const dryRun = core.getBooleanInput('dry_run', { required: true })
     const alertTypesInput = core.getInput('alert_types') || 'all'
+    const matchingLevel = core.getInput('matching-level') || 'exact'
 
     const alertTypes = alertTypesInput.split(',').map(s => s.trim())
 
@@ -64,7 +65,11 @@ export async function run(): Promise<void> {
         `Fetched ${targetAlerts.length} alerts from the target repository`
       )
 
-      matches = mapSecretScanningAlerts(originalAlerts, targetAlerts)
+      matches = mapSecretScanningAlerts(
+        originalAlerts,
+        targetAlerts,
+        matchingLevel
+      )
 
       core.debug(`Found ${matches.length} matches`)
 
@@ -81,7 +86,18 @@ export async function run(): Promise<void> {
 
     // Save report
     const reportPath = './reports/ghas-alert-mapping-report.md'
-    const reportContent = generateReport(matches)
+    const timestamp = new Date().toISOString()
+    const reportContent = generateReport(
+      matches,
+      originalRepository,
+      targetRepository,
+      originalEndpoint,
+      targetEndpoint,
+      dryRun,
+      alertTypes,
+      matchingLevel,
+      timestamp
+    )
     saveReport(reportPath, reportContent)
 
     // Outputs

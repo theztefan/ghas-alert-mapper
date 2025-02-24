@@ -44,7 +44,8 @@ export const fetchSecretScanningAlerts = async (
 
 export const mapSecretScanningAlerts = (
   originalAlerts: SecretScanningAlert[],
-  targetAlerts: SecretScanningAlert[]
+  targetAlerts: SecretScanningAlert[],
+  matchingLevel: string
 ): Matches[] => {
   const matchesList: Matches[] = []
 
@@ -54,8 +55,10 @@ export const mapSecretScanningAlerts = (
         targetAlert.secret_type === originalAlert.secret_type
       const isSecretMatch = targetAlert.secret === originalAlert.secret
       const isLocationCountMatch =
-        (targetAlert.totalLocations || 0) ===
-        (originalAlert.totalLocations || 0)
+        matchingLevel === 'exact'
+          ? (targetAlert.totalLocations || 0) ===
+            (originalAlert.totalLocations || 0)
+          : true
       const isStateMatch = targetAlert.state === originalAlert.state
 
       const isMatch = isSecretTypeMatch && isSecretMatch && isLocationCountMatch

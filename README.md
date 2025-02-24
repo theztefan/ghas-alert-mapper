@@ -30,6 +30,8 @@ resoled alerts.
 - `alert_types` (optional, default: `all`): Comma separated list of alert types
   to process. Valid values are `all`, `secret-scanning`, `code-scanning`, and
   `dependabot`.
+- `matchinglevel` (optional, default: `exact`): Valid values are `exact` or
+  `loose`.
 
 :warning: The `code-scanning` and `dependabot` alert types are not supported
 yet.
@@ -65,10 +67,17 @@ yet.
 
 The alerts are a match when the following criteria are met:
 
-- The secret provider is the same.
-- The secret type is the same.
-- The secret itself is the same.
-- The number of locations where the secret is found is the same.
+- Matching level`exact`: The alerts are a match when the following criteria are
+  met:
+  - The secret provider is the same.
+  - The secret type is the same.
+  - The secret itself is the same.
+  - The number of locations where the secret is found is the same.
+- Matching level `loose`: The alerts are a match when the following criteria are
+  met:
+  - The secret provider is the same.
+  - The secret type is the same.
+  - The secret itself is the same.
 
 #### Code Scanning Alerts
 

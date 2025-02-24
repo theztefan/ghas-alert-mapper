@@ -27179,8 +27179,15 @@ const saveReport = (reportPath, content) => {
     }
 };
 exports.saveReport = saveReport;
-const generateReport = (matches) => {
-    let reportContent = '# GHAS Alert Mapping Report\n\n';
+const generateReport = (matches, originalRepository, targetRepository, originalEndpoint, targetEndpoint, dryRun, alertTypes, matchingLevel, timestamp) => {
+    let reportContent = `# GHAS Alert Mapping Report\n\n**Timestamp:** ${timestamp}\n\n`;
+    reportContent += `**Original Repo:** ${originalRepository}\n`;
+    reportContent += `**Target Repo:** ${targetRepository}\n`;
+    reportContent += `**Original Endpoint:** ${originalEndpoint}\n`;
+    reportContent += `**Target Endpoint:** ${targetEndpoint}\n`;
+    reportContent += `**Dry Run:** ${dryRun}\n`;
+    reportContent += `**Alert Types:** ${alertTypes.join(', ')}\n`;
+    reportContent += `**Matching Level:** ${matchingLevel}\n\n`;
     // Table header
     reportContent +=
         '| Original Alert | Target Alert | Secret Type Match | Secret Match | Location Count Match | State Match |\n';
@@ -27271,14 +27278,16 @@ const fetchSecretScanningAlerts = async (octokit, owner, repo) => {
     }
 };
 exports.fetchSecretScanningAlerts = fetchSecretScanningAlerts;
-const mapSecretScanningAlerts = (originalAlerts, targetAlerts) => {
+const mapSecretScanningAlerts = (originalAlerts, targetAlerts, matchingLevel) => {
     const matchesList = [];
     for (const originalAlert of originalAlerts) {
         for (const targetAlert of targetAlerts) {
             const isSecretTypeMatch = targetAlert.secret_type === originalAlert.secret_type;
             const isSecretMatch = targetAlert.secret === originalAlert.secret;
-            const isLocationCountMatch = (targetAlert.totalLocations || 0) ===
-                (originalAlert.totalLocations || 0);
+            const isLocationCountMatch = matchingLevel === 'exact'
+                ? (targetAlert.totalLocations || 0) ===
+                    (originalAlert.totalLocations || 0)
+                : true;
             const isStateMatch = targetAlert.state === originalAlert.state;
             const isMatch = isSecretTypeMatch && isSecretMatch && isLocationCountMatch;
             if (isMatch) {
@@ -27390,6 +27399,7 @@ async function run() {
         const targetToken = core.getInput('target_token', { required: true });
         const dryRun = core.getBooleanInput('dry_run', { required: true });
         const alertTypesInput = core.getInput('alert_types') || 'all';
+        const matchingLevel = core.getInput('matching-level') || 'exact';
         const alertTypes = alertTypesInput.split(',').map(s => s.trim());
         // Octokit instances
         const [originalOwner, originalRepo] = originalRepository.split('/');
@@ -27410,14 +27420,15 @@ async function run() {
             core.debug(`Fetched ${originalAlerts.length} alerts from the original repository`);
             const targetAlerts = await (0, SecretScanning_js_1.fetchSecretScanningAlerts)(TargetOctokit, targetOwner, targetRepo);
             core.debug(`Fetched ${targetAlerts.length} alerts from the target repository`);
-            matches = (0, SecretScanning_js_1.mapSecretScanningAlerts)(originalAlerts, targetAlerts);
+            matches = (0, SecretScanning_js_1.mapSecretScanningAlerts)(originalAlerts, targetAlerts, matchingLevel);
             core.debug(`Found ${matches.length} matches`);
             await (0, SecretScanning_js_1.updateSecretScanningAlerts)(matches, TargetOctokit, targetOwner, targetRepo, dryRun);
         }
         // TODO: Handle other alert types...
         // Save report
         const reportPath = './reports/ghas-alert-mapping-report.md';
-        const reportContent = (0, Report_1.generateReport)(matches);
+        const timestamp = new Date().toISOString();
+        const reportContent = (0, Report_1.generateReport)(matches, originalRepository, targetRepository, originalEndpoint, targetEndpoint, dryRun, alertTypes, matchingLevel, timestamp);
         (0, Report_1.saveReport)(reportPath, reportContent);
         // Outputs
         core.setOutput('report_file', reportPath);

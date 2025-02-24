@@ -130,26 +130,41 @@ describe('SecretScanning', () => {
 
   describe('mapSecretScanningAlerts', () => {
     it('should return empty matches when no alerts', () => {
-      const matches = mapSecretScanningAlerts([], [])
+      const matches = mapSecretScanningAlerts([], [], 'exact')
       expect(matches).toEqual([])
     })
 
-    it('should map matching alerts', () => {
+    it('should map matching alerts with exact matching level', () => {
       const matches = mapSecretScanningAlerts(
         [mockSecretAlert],
-        [mockSecretAlert]
+        [mockSecretAlert],
+        'exact'
       )
       expect(matches).toEqual([mockMatches])
     })
 
-    it('should not map non-matching alerts', () => {
+    it('should not map non-matching alerts with exact matching level', () => {
       const nonMatchingAlert = {
         ...mockSecretAlert,
         secret: 'different_secret'
       }
       const matches = mapSecretScanningAlerts(
         [mockSecretAlert],
-        [nonMatchingAlert]
+        [nonMatchingAlert],
+        'exact'
+      )
+      expect(matches).toEqual([])
+    })
+
+    it('should not map non-matching alerts with loose matching level', () => {
+      const nonMatchingAlert = {
+        ...mockSecretAlert,
+        secret: 'different_secret'
+      }
+      const matches = mapSecretScanningAlerts(
+        [mockSecretAlert],
+        [nonMatchingAlert],
+        'loose'
       )
       expect(matches).toEqual([])
     })

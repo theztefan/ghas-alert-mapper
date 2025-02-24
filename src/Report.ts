@@ -12,8 +12,25 @@ export const saveReport = (reportPath: string, content: string): void => {
   }
 }
 
-export const generateReport = (matches: Matches[]): string => {
-  let reportContent = '# GHAS Alert Mapping Report\n\n'
+export const generateReport = (
+  matches: Matches[],
+  originalRepository: string,
+  targetRepository: string,
+  originalEndpoint: string,
+  targetEndpoint: string,
+  dryRun: boolean,
+  alertTypes: string[],
+  matchingLevel: string,
+  timestamp: string
+): string => {
+  let reportContent = `# GHAS Alert Mapping Report\n\n**Timestamp:** ${timestamp}\n\n`
+  reportContent += `**Original Repo:** ${originalRepository}\n`
+  reportContent += `**Target Repo:** ${targetRepository}\n`
+  reportContent += `**Original Endpoint:** ${originalEndpoint}\n`
+  reportContent += `**Target Endpoint:** ${targetEndpoint}\n`
+  reportContent += `**Dry Run:** ${dryRun}\n`
+  reportContent += `**Alert Types:** ${alertTypes.join(', ')}\n`
+  reportContent += `**Matching Level:** ${matchingLevel}\n\n`
 
   // Table header
   reportContent +=
