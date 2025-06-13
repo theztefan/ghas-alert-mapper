@@ -5,11 +5,13 @@ import {
   Matches
 } from './types/common/main.d'
 import * as core from '@actions/core'
+import { ErrorTracker } from './ErrorTracker'
 
 export const fetchSecretScanningAlerts = async (
   octokit: InstanceType<typeof MyOctokit>,
   owner: string,
-  repo: string
+  repo: string,
+  errorTracker: ErrorTracker
 ): Promise<SecretScanningAlert[]> => {
   try {
     const alerts = (await octokit.paginate(
@@ -37,7 +39,8 @@ export const fetchSecretScanningAlerts = async (
 
     return alerts
   } catch (error) {
-    core.setFailed(`Error fetching secret scanning alerts: ${String(error)}`)
+    const errorMessage = `Error fetching secret scanning alerts for ${owner}/${repo}: ${String(error)}`
+    errorTracker.addError(errorMessage)
     return []
   }
 }
@@ -68,11 +71,7 @@ export const mapSecretScanningAlerts = (
           ...targetAlert,
           state: originalAlert.state,
           resolution: originalAlert.resolution,
-          resolution_comment:
-            '[sync] ' +
-            (originalAlert.resolution_comment || '') +
-            ' # closed by: ' +
-            (originalAlert.resolved_by?.login || '')
+          resolution_comment: `[@${originalAlert.resolved_by?.login || 'unknown'}] ${originalAlert.resolution_comment || ''}`
         }
 
         matchesList.push({
@@ -96,7 +95,8 @@ export const updateSecretScanningAlerts = async (
   targetOctokit: InstanceType<typeof MyOctokit>,
   owner: string,
   repo: string,
-  dryRun: boolean
+  dryRun: boolean,
+  errorTracker: ErrorTracker
 ): Promise<void> => {
   for (const match of matches) {
     if (!match.isStateMatch) {
@@ -107,14 +107,25 @@ export const updateSecretScanningAlerts = async (
       )
 
       if (!dryRun) {
-        await targetOctokit.rest.secretScanning.updateAlert({
-          owner,
-          repo,
-          alert_number: alert.number,
-          state: alert.state,
-          resolution: alert.resolution,
-          resolution_comment: alert.resolution_comment
-        })
+        try {
+          const updateParams: any = {
+            owner,
+            repo,
+            alert_number: alert.number,
+            state: alert.state
+          }
+
+          // Only include resolution fields if there's a valid resolution
+          if (alert.resolution) {
+            updateParams.resolution = alert.resolution
+            updateParams.resolution_comment = alert.resolution_comment
+          }
+
+          await targetOctokit.rest.secretScanning.updateAlert(updateParams)
+        } catch (error) {
+          const errorMessage = `Error updating alert #${alert.number} in ${owner}/${repo}: ${String(error)}`
+          errorTracker.addError(errorMessage)
+        }
       } else {
         core.info('Dry run: Would update alert ' + alert.number)
       }

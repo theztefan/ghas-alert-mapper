@@ -7,8 +7,11 @@ import {
 } from './SecretScanning.js'
 import { generateReport, saveReport } from './Report'
 import { Matches } from './types/common/main.d'
+import { ErrorTracker } from './ErrorTracker'
 
 export async function run(): Promise<void> {
+  const errorTracker = new ErrorTracker()
+
   try {
     // Inputs
     const originalRepository = core.getInput('original_repository', {
@@ -51,7 +54,8 @@ export async function run(): Promise<void> {
       const originalAlerts = await fetchSecretScanningAlerts(
         OriginalOctokit,
         originalOwner,
-        originalRepo
+        originalRepo,
+        errorTracker
       )
       core.debug(
         `Fetched ${originalAlerts.length} alerts from the original repository`
@@ -59,7 +63,8 @@ export async function run(): Promise<void> {
       const targetAlerts = await fetchSecretScanningAlerts(
         TargetOctokit,
         targetOwner,
-        targetRepo
+        targetRepo,
+        errorTracker
       )
       core.debug(
         `Fetched ${targetAlerts.length} alerts from the target repository`
@@ -78,7 +83,8 @@ export async function run(): Promise<void> {
         TargetOctokit,
         targetOwner,
         targetRepo,
-        dryRun
+        dryRun,
+        errorTracker
       )
     }
 
@@ -100,10 +106,24 @@ export async function run(): Promise<void> {
     )
     saveReport(reportPath, reportContent)
 
+    // Set error outputs
+    errorTracker.setOutputs()
+
     // Outputs
     core.setOutput('report_file', reportPath)
+
+    if (errorTracker.hasErrors()) {
+      core.warning(
+        `Action completed with ${errorTracker.getErrorCount()} error(s). Check error_messages output for details.`
+      )
+    } else {
+      core.info('Action completed successfully without errors.')
+    }
+
     core.info(`Action completed. Report file: ${reportPath}`)
   } catch (error) {
+    errorTracker.addError(`Critical error: ${String(error)}`)
+    errorTracker.setOutputs()
     core.setFailed(`Action failed with error: ${String(error)}`)
   }
 }

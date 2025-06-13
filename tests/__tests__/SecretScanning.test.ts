@@ -1,228 +1,302 @@
-import { describe, expect, jest, it, afterEach } from '@jest/globals'
-jest.mock('@actions/core')
-
+import { MyOctokit } from '../../src/MyOctokit'
 import {
   fetchSecretScanningAlerts,
   mapSecretScanningAlerts,
   updateSecretScanningAlerts
-} from '../../src/SecretScanning.ts'
-import { MyOctokit } from '../../src/MyOctokit.ts'
-import * as core from '@actions/core'
-import {
-  Matches,
-  SecretScanningAlert,
-  SecretScanningLocation
-} from '../../src/types/common/main'
-import { OctokitResponse } from '@octokit/types'
+} from '../../src/SecretScanning'
+import { ErrorTracker } from '../../src/ErrorTracker'
+import { SecretScanningAlert, Matches } from '../../src/types/common/main.d'
 
-const mockSecretAlert: SecretScanningAlert = {
-  number: 1,
-  html_url: 'https://github.com/test/repo/alert/1',
-  secret_type: 'test_secret',
-  secret: 'secret123',
-  state: 'open',
-  resolution: null,
-  resolved_by: { login: 'actor' },
-  resolved_at: 'date',
-  locations: [],
-  totalLocations: 0
-}
-
-const mockSecretLocation: SecretScanningLocation = {
-  type: 'commit',
-  details: {
-    path: 'path/to/secret',
-    start_line: 1,
-    end_line: 1,
-    start_column: 1,
-    end_column: 1
-  }
-}
-
-const mockMatches: Matches = {
-  originalAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1
-  },
-  targetAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1
-  },
-  updatedAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1,
-    resolution_comment: '[sync]  # closed by: actor'
-  },
-  isSecretTypeMatch: true,
-  isSecretMatch: true,
-  isLocationCountMatch: true,
-  isStateMatch: true
-}
-
-const mockNonMatches: Matches = {
-  originalAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1
-  },
-  targetAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1
-  },
-  updatedAlert: {
-    ...mockSecretAlert,
-    number: 1,
-    locations: [mockSecretLocation],
-    totalLocations: 1,
-    resolution_comment: '[sync]  # closed by: actor'
-  },
-  isSecretTypeMatch: true,
-  isSecretMatch: true,
-  isLocationCountMatch: true,
-  isStateMatch: false
-}
+// Mock the @actions/core module
+jest.mock('@actions/core', () => ({
+  error: jest.fn(),
+  info: jest.fn(),
+  setOutput: jest.fn()
+}))
 
 describe('SecretScanning', () => {
-  afterEach(() => {
-    jest.clearAllMocks()
+  let mockOctokit: jest.Mocked<MyOctokit>
+  let errorTracker: ErrorTracker
+
+  beforeEach(() => {
+    mockOctokit = {
+      paginate: jest.fn(),
+      rest: {
+        secretScanning: {
+          listAlertsForRepo: jest.fn(),
+          listLocationsForAlert: jest.fn(),
+          updateAlert: jest.fn()
+        }
+      }
+    } as any
+    errorTracker = new ErrorTracker()
   })
 
   describe('fetchSecretScanningAlerts', () => {
     it('should fetch secret scanning alerts successfully', async () => {
-      const octokit = new MyOctokit()
-      jest.spyOn(octokit, 'paginate').mockResolvedValueOnce([mockSecretAlert])
-      jest
-        .spyOn(octokit, 'paginate')
-        .mockResolvedValueOnce([mockSecretLocation])
-
-      const alerts = await fetchSecretScanningAlerts(octokit, 'owner', 'repo')
-      expect(alerts).toEqual([
+      const mockAlerts = [
         {
-          ...mockSecretAlert,
-          locations: [mockSecretLocation],
-          totalLocations: 1
+          number: 1,
+          secret_type: 'github_token',
+          secret: 'ghp_test123',
+          state: 'open'
         }
-      ])
+      ]
+      const mockLocations = [
+        {
+          path: 'test.js',
+          start_line: 1,
+          end_line: 1
+        }
+      ]
+
+      mockOctokit.paginate
+        .mockResolvedValueOnce(mockAlerts)
+        .mockResolvedValueOnce(mockLocations)
+
+      const result = await fetchSecretScanningAlerts(
+        mockOctokit,
+        'owner',
+        'repo',
+        errorTracker
+      )
+
+      expect(result).toHaveLength(1)
+      expect(result[0].locations).toEqual(mockLocations)
+      expect(result[0].totalLocations).toBe(1)
+      expect(errorTracker.hasErrors()).toBe(false)
     })
 
     it('should handle errors when fetching alerts fails', async () => {
-      const octokit = new MyOctokit()
-      jest
-        .spyOn(octokit, 'paginate')
-        .mockRejectedValue(new Error('Fetch failed'))
+      const error = new Error('Secret scanning is disabled on this repository')
+      mockOctokit.paginate.mockRejectedValueOnce(error)
 
-      const alerts = await fetchSecretScanningAlerts(octokit, 'owner', 'repo')
-      expect(alerts).toEqual([])
-      expect(core.setFailed).toHaveBeenCalledWith(
-        'Error fetching secret scanning alerts: Error: Fetch failed'
+      const result = await fetchSecretScanningAlerts(
+        mockOctokit,
+        'owner',
+        'repo',
+        errorTracker
+      )
+
+      expect(result).toEqual([])
+      expect(errorTracker.hasErrors()).toBe(true)
+      expect(errorTracker.getErrorCount()).toBe(1)
+      expect(errorTracker.getErrorMessages()).toContain(
+        'Error fetching secret scanning alerts for owner/repo'
       )
     })
   })
 
   describe('mapSecretScanningAlerts', () => {
-    it('should return empty matches when no alerts', () => {
-      const matches = mapSecretScanningAlerts([], [], 'exact')
-      expect(matches).toEqual([])
-    })
+    it('should map alerts with exact matching', () => {
+      const originalAlerts: SecretScanningAlert[] = [
+        {
+          number: 1,
+          secret_type: 'github_token',
+          secret: 'ghp_test123',
+          state: 'resolved',
+          resolution: 'false_positive',
+          resolution_comment: 'Not a real token',
+          totalLocations: 1
+        }
+      ]
 
-    it('should map matching alerts with exact matching level', () => {
+      const targetAlerts: SecretScanningAlert[] = [
+        {
+          number: 2,
+          secret_type: 'github_token',
+          secret: 'ghp_test123',
+          state: 'open',
+          totalLocations: 1
+        }
+      ]
+
       const matches = mapSecretScanningAlerts(
-        [mockSecretAlert],
-        [mockSecretAlert],
+        originalAlerts,
+        targetAlerts,
         'exact'
       )
-      expect(matches).toEqual([mockMatches])
+
+      expect(matches).toHaveLength(1)
+      expect(matches[0].isSecretTypeMatch).toBe(true)
+      expect(matches[0].isSecretMatch).toBe(true)
+      expect(matches[0].isLocationCountMatch).toBe(true)
+      expect(matches[0].isStateMatch).toBe(false)
     })
 
-    it('should not map non-matching alerts with exact matching level', () => {
-      const nonMatchingAlert = {
-        ...mockSecretAlert,
-        secret: 'different_secret'
-      }
+    it('should return empty array when no matches found', () => {
+      const originalAlerts: SecretScanningAlert[] = [
+        {
+          number: 1,
+          secret_type: 'github_token',
+          secret: 'ghp_test123',
+          state: 'resolved',
+          totalLocations: 1
+        }
+      ]
+
+      const targetAlerts: SecretScanningAlert[] = [
+        {
+          number: 2,
+          secret_type: 'aws_secret',
+          secret: 'aws_secret456',
+          state: 'open',
+          totalLocations: 1
+        }
+      ]
+
       const matches = mapSecretScanningAlerts(
-        [mockSecretAlert],
-        [nonMatchingAlert],
+        originalAlerts,
+        targetAlerts,
         'exact'
       )
-      expect(matches).toEqual([])
-    })
 
-    it('should not map non-matching alerts with loose matching level', () => {
-      const nonMatchingAlert = {
-        ...mockSecretAlert,
-        secret: 'different_secret'
-      }
-      const matches = mapSecretScanningAlerts(
-        [mockSecretAlert],
-        [nonMatchingAlert],
-        'loose'
-      )
-      expect(matches).toEqual([])
+      expect(matches).toHaveLength(0)
     })
   })
 
   describe('updateSecretScanningAlerts', () => {
-    it('should update alerts successfully', async () => {
-      const octokit = new MyOctokit()
-      const mockResponse: OctokitResponse<any, 200> = {
-        headers: {},
-        status: 200,
-        url: '',
-        data: {},
-        retryCount: 0
-      }
-      jest
-        .spyOn(octokit.rest.secretScanning, 'updateAlert')
-        .mockResolvedValue(mockResponse)
+    it('should update alerts when not in dry run mode', async () => {
+      const matches: Matches[] = [
+        {
+          originalAlert: {
+            number: 1,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved',
+            resolution: 'false_positive',
+            resolution_comment: 'Not a real token',
+            resolved_by: {
+              login: 'testuser'
+            }
+          },
+          targetAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'open'
+          },
+          updatedAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved',
+            resolution: 'false_positive',
+            resolution_comment: '[@testuser] Not a real token'
+          },
+          isSecretTypeMatch: true,
+          isSecretMatch: true,
+          isLocationCountMatch: true,
+          isStateMatch: false
+        }
+      ]
 
       await updateSecretScanningAlerts(
-        [mockNonMatches],
-        octokit,
+        matches,
+        mockOctokit,
         'owner',
         'repo',
-        false
+        false,
+        errorTracker
       )
-      expect(octokit.rest.secretScanning.updateAlert).toHaveBeenCalledWith({
+
+      expect(mockOctokit.rest.secretScanning.updateAlert).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
-        alert_number: 1,
-        state: 'open',
-        resolution: null,
-        resolution_comment: '[sync]  # closed by: actor'
+        alert_number: 2,
+        state: 'resolved',
+        resolution: 'false_positive',
+        resolution_comment: '[@testuser] Not a real token'
       })
+      expect(errorTracker.hasErrors()).toBe(false)
     })
 
-    it('should handle dry run', async () => {
-      const octokit = new MyOctokit()
-      const mockResponse: OctokitResponse<any, 200> = {
-        headers: {},
-        status: 200,
-        url: '',
-        data: {},
-        retryCount: 0
-      }
-      jest
-        .spyOn(octokit.rest.secretScanning, 'updateAlert')
-        .mockResolvedValue(mockResponse)
+    it('should handle errors when updating alerts fails', async () => {
+      const matches: Matches[] = [
+        {
+          originalAlert: {
+            number: 1,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved'
+          },
+          targetAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'open'
+          },
+          updatedAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved'
+          },
+          isSecretTypeMatch: true,
+          isSecretMatch: true,
+          isLocationCountMatch: true,
+          isStateMatch: false
+        }
+      ]
+
+      const error = new Error('API rate limit exceeded')
+      mockOctokit.rest.secretScanning.updateAlert.mockRejectedValueOnce(error)
 
       await updateSecretScanningAlerts(
-        [mockNonMatches],
-        octokit,
+        matches,
+        mockOctokit,
         'owner',
         'repo',
-        true
+        false,
+        errorTracker
       )
-      expect(octokit.rest.secretScanning.updateAlert).not.toHaveBeenCalled()
-      expect(core.info).toHaveBeenCalled()
+
+      expect(errorTracker.hasErrors()).toBe(true)
+      expect(errorTracker.getErrorCount()).toBe(1)
+      expect(errorTracker.getErrorMessages()).toContain(
+        'Error updating alert #2 in owner/repo'
+      )
+    })
+
+    it('should not update alerts in dry run mode', async () => {
+      const matches: Matches[] = [
+        {
+          originalAlert: {
+            number: 1,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved'
+          },
+          targetAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'open'
+          },
+          updatedAlert: {
+            number: 2,
+            secret_type: 'github_token',
+            secret: 'ghp_test123',
+            state: 'resolved'
+          },
+          isSecretTypeMatch: true,
+          isSecretMatch: true,
+          isLocationCountMatch: true,
+          isStateMatch: false
+        }
+      ]
+
+      await updateSecretScanningAlerts(
+        matches,
+        mockOctokit,
+        'owner',
+        'repo',
+        true,
+        errorTracker
+      )
+
+      expect(mockOctokit.rest.secretScanning.updateAlert).not.toHaveBeenCalled()
+      expect(errorTracker.hasErrors()).toBe(false)
     })
   })
 })

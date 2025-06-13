@@ -42,14 +42,34 @@ const mockMatches: Matches = {
 describe('Report', () => {
   describe('generateReport', () => {
     it('should generate empty report when no matches', () => {
-      const report = generateReport([])
+      const report = generateReport(
+        [],
+        'owner/original-repo',
+        'owner/target-repo',
+        'https://api.github.com',
+        'https://api.github.com',
+        true,
+        ['secret-scanning'],
+        'exact',
+        '2025-06-13T00:00:00.000Z'
+      )
       expect(report).toContain('# GHAS Alert Mapping Report')
       expect(report).toContain('| Original Alert | Target Alert |')
       expect(report).not.toContain('|#')
     })
 
     it('should generate report with single match', () => {
-      const report = generateReport([mockMatches])
+      const report = generateReport(
+        [mockMatches],
+        'owner/original-repo',
+        'owner/target-repo',
+        'https://api.github.com',
+        'https://api.github.com',
+        true,
+        ['secret-scanning'],
+        'exact',
+        '2025-06-13T00:00:00.000Z'
+      )
       expect(report).toContain(`[#1](${mockMatches.originalAlert.html_url})`)
       expect(report).toContain(`[#2](${mockMatches.targetAlert.html_url})`)
       expect(report).toContain('✅')
@@ -64,7 +84,17 @@ describe('Report', () => {
         isStateMatch: false
       }
 
-      const report = generateReport([failedMatches])
+      const report = generateReport(
+        [failedMatches],
+        'owner/original-repo',
+        'owner/target-repo',
+        'https://api.github.com',
+        'https://api.github.com',
+        true,
+        ['secret-scanning'],
+        'exact',
+        '2025-06-13T00:00:00.000Z'
+      )
       expect(report).toContain('❌')
     })
   })

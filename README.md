@@ -40,6 +40,11 @@ yet.
 
 - `report_file`: The path to the report file that contains the results of the
   action. This file will be in the `reports` directory of the repository.
+- `has_errors`: Boolean value (`true`/`false`) indicating whether any errors
+  occurred during the execution of the action.
+- `error_messages`: Comma-separated list of error messages that occurred during
+  execution. Useful for debugging and understanding what went wrong.
+- `error_count`: Number of errors that occurred during execution.
 
 ## How does it work?
 
@@ -150,5 +155,37 @@ jobs:
           target_repository: octocat/target-repo
           target_token: ${{ secrets.TARGET_TOKEN }}
           dry_run: 'false'
-          alert_types: 'secret scanninge'
+          alert_types: 'secret-scanning'
+
+      - name: Handle errors
+        if: steps.update_ghas_alert_state.outputs.has_errors == 'true'
+        run: |
+          echo "⚠️ Errors occurred during GHAS alert mapping:"
+          echo "Error count: ${{ steps.update_ghas_alert_state.outputs.error_count }}"
+          echo "Error messages: ${{ steps.update_ghas_alert_state.outputs.error_messages }}"
+
+      - name: Report success
+        if: steps.update_ghas_alert_state.outputs.has_errors == 'false'
+        run: |
+          echo "✅ GHAS alert mapping completed successfully"
+          echo "Report available at: ${{ steps.update_ghas_alert_state.outputs.report_file }}"
 ```
+
+### Error Handling
+
+The action provides detailed error information through its outputs, allowing you
+to handle different scenarios in your workflow:
+
+- **has_errors**: Check if any errors occurred during execution
+- **error_messages**: Get specific error messages for debugging
+- **error_count**: Know how many errors occurred
+
+Common error scenarios include:
+
+- Secret scanning disabled on repositories
+- Insufficient permissions to access alerts
+- API rate limiting
+- Network connectivity issues
+
+The action will continue execution and generate a report even when errors occur,
+allowing you to review what was successfully processed.

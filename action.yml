@@ -46,6 +46,12 @@ inputs:
 outputs:
   report_file:
     description: 'The file containing the report of the action'
+  has_errors:
+    description: 'Whether errors occurred during execution (true/false)'
+  error_messages:
+    description: 'Comma-separated list of error messages that occurred'
+  error_count:
+    description: 'Number of errors that occurred'
 
 runs:
   using: node20
