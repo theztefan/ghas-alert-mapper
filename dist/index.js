@@ -27361,11 +27361,16 @@ const mapSecretScanningAlerts = (originalAlerts, targetAlerts, matchingLevel) =>
             const isStateMatch = targetAlert.state === originalAlert.state;
             const isMatch = isSecretTypeMatch && isSecretMatch && isLocationCountMatch;
             if (isMatch) {
+                // Prepare the resolution comment
+                let resolution_comment = `[@${originalAlert.resolved_by?.login || 'unknown'}] ${originalAlert.resolution_comment || ''}`;
+                if (resolution_comment.length > 270) {
+                    resolution_comment = resolution_comment.substring(0, 270);
+                }
                 const updatedAlert = {
                     ...targetAlert,
                     state: originalAlert.state,
                     resolution: originalAlert.resolution,
-                    resolution_comment: `[@${originalAlert.resolved_by?.login || 'unknown'}] ${originalAlert.resolution_comment || ''}`
+                    resolution_comment: resolution_comment
                 };
                 matchesList.push({
                     originalAlert,
